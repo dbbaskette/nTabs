@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async () => {
     const fetchTabsBtn = document.getElementById('fetchTabs');
     const closeSelectedBtn = document.getElementById('closeSelected');
     const openSelectedBtn = document.getElementById('openSelected');
@@ -6,30 +6,144 @@ document.addEventListener('DOMContentLoaded', function() {
     const tabsTableBody = document.getElementById('tabsTableBody');
     const settingsButton = document.getElementById('settingsButton');
     const collectionNameInput = document.getElementById('collectionName');
+    const status = document.getElementById('status');
+    const mainContent = document.getElementById('mainContent');
+    const settingsContent = document.getElementById('settingsContent');
+    const saveSettingsBtn = document.getElementById('saveSettings');
+    const closeSettingsBtn = document.getElementById('closeSettings');
+    const geminiApiKeyInput = document.getElementById('geminiApiKey');
+    const notionApiKeyInput = document.getElementById('notionApiKey');
+    const notionDatabaseIdInput = document.getElementById('notionDatabaseId');
 
-    // Load saved API key
-    chrome.storage.local.get(['geminiApiKey'], function(result) {
-        if (result.geminiApiKey) {
-            collectionNameInput.value = result.geminiApiKey;
+    // Load saved collection name
+    const savedCollection = await chrome.storage.sync.get('collectionName');
+    if (savedCollection.collectionName) {
+        collectionNameInput.value = savedCollection.collectionName;
+    }
+
+    // Load saved settings
+    const savedSettings = await chrome.storage.sync.get(['geminiApiKey', 'notionApiKey', 'notionDatabaseId']);
+    if (savedSettings.geminiApiKey) {
+        geminiApiKeyInput.value = savedSettings.geminiApiKey;
+    }
+    if (savedSettings.notionApiKey) {
+        notionApiKeyInput.value = savedSettings.notionApiKey;
+    }
+    if (savedSettings.notionDatabaseId) {
+        notionDatabaseIdInput.value = savedSettings.notionDatabaseId;
+    }
+
+    // Function to show settings
+    function showSettings() {
+        document.querySelector('.header').style.display = 'none';
+        mainContent.style.display = 'none';
+        settingsContent.style.display = 'block';
+    }
+
+    // Function to show main content
+    function showMainContent() {
+        document.querySelector('.header').style.display = 'flex';
+        settingsContent.style.display = 'none';
+        mainContent.style.display = 'block';
+        refreshTabsList();
+    }
+
+    // Open settings
+    settingsButton.addEventListener('click', showSettings);
+
+    // Close settings
+    closeSettingsBtn.addEventListener('click', showMainContent);
+
+    // Save settings
+    saveSettingsBtn.addEventListener('click', async () => {
+        const apiKey = geminiApiKeyInput.value;
+        const notionApiKey = notionApiKeyInput.value;
+        const notionDatabaseId = notionDatabaseIdInput.value;
+        
+        await chrome.storage.sync.set({
+            'geminiApiKey': apiKey,
+            'notionApiKey': notionApiKey,
+            'notionDatabaseId': notionDatabaseId
+        });
+        
+        status.textContent = 'Settings saved successfully!';
+        setTimeout(() => {
+            status.textContent = '';
+            showMainContent();
+        }, 3000);
+    });
+
+    // Function to refresh tabs list
+    async function refreshTabsList() {
+        // Get the latest tabs from the background script
+        const response = await chrome.runtime.sendMessage({ action: 'getTabs' });
+        const tabs = response.tabs;
+        
+        tabsTableBody.innerHTML = '';
+        
+        for (const tab of tabs) {
+            // Only skip the settings page
+            if (tab.url.includes('settings.html')) {
+                continue;
+            }
+
+            const row = document.createElement('tr');
+            const checkboxCell = document.createElement('td');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'tab-checkbox';
+            checkbox.dataset.tabId = tab.id;
+            checkbox.dataset.url = tab.url;
+            
+            checkbox.addEventListener('change', function() {
+                updateRowSelection(this);
+            });
+            
+            checkboxCell.appendChild(checkbox);
+            row.appendChild(checkboxCell);
+            
+            const titleCell = document.createElement('td');
+            titleCell.textContent = tab.title;
+            row.appendChild(titleCell);
+            
+            const urlCell = document.createElement('td');
+            urlCell.className = 'url-cell';
+            urlCell.textContent = tab.url;
+            row.appendChild(urlCell);
+            
+            const summaryCell = document.createElement('td');
+            summaryCell.textContent = 'Loading...';
+            row.appendChild(summaryCell);
+            
+            tabsTableBody.appendChild(row);
+            
+            // Get summary for the tab
+            getTabSummary(tab.url, summaryCell);
+        }
+    }
+
+    // Refresh tabs list when popup opens
+    await refreshTabsList();
+
+    // Listen for refresh messages from background script
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.action === 'refreshTabs' && !sender.url?.includes('settings.html')) {
+            refreshTabsList();
         }
     });
 
-    // Save API key
-    collectionNameInput.addEventListener('change', function() {
-        const apiKey = collectionNameInput.value;
-        chrome.storage.local.set({ geminiApiKey: apiKey }, function() {
-            alert('API Key saved successfully!');
-        });
-    });
-
-    // Open settings window
-    settingsButton.addEventListener('click', function() {
-        chrome.windows.create({
-            url: 'settings.html',
-            type: 'popup',
-            width: 600,
-            height: 500
-        });
+    // Save collection name
+    collectionNameInput.addEventListener('keypress', async (e) => {
+        if (e.key === 'Enter') {
+            const collectionName = collectionNameInput.value.trim();
+            if (collectionName) {
+                await chrome.storage.sync.set({ 'collectionName': collectionName });
+                status.textContent = 'Collection name saved successfully!';
+                setTimeout(() => {
+                    status.textContent = '';
+                }, 3000);
+            }
+        }
     });
 
     // Select all functionality
@@ -48,40 +162,38 @@ document.addEventListener('DOMContentLoaded', function() {
         tabsTableBody.innerHTML = '';
         
         for (const tab of tabs) {
-            if (tab.id !== currentTab.id) {
-                const row = document.createElement('tr');
-                const checkboxCell = document.createElement('td');
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.className = 'tab-checkbox';
-                checkbox.dataset.tabId = tab.id;
-                checkbox.dataset.url = tab.url;
-                
-                checkbox.addEventListener('change', function() {
-                    updateRowSelection(this);
-                });
-                
-                checkboxCell.appendChild(checkbox);
-                row.appendChild(checkboxCell);
-                
-                const titleCell = document.createElement('td');
-                titleCell.textContent = tab.title;
-                row.appendChild(titleCell);
-                
-                const urlCell = document.createElement('td');
-                urlCell.className = 'url-cell';
-                urlCell.textContent = tab.url;
-                row.appendChild(urlCell);
-                
-                const summaryCell = document.createElement('td');
-                summaryCell.textContent = 'Loading...';
-                row.appendChild(summaryCell);
-                
-                tabsTableBody.appendChild(row);
-                
-                // Get summary for the tab
-                getTabSummary(tab.url, summaryCell);
-            }
+            const row = document.createElement('tr');
+            const checkboxCell = document.createElement('td');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'tab-checkbox';
+            checkbox.dataset.tabId = tab.id;
+            checkbox.dataset.url = tab.url;
+            
+            checkbox.addEventListener('change', function() {
+                updateRowSelection(this);
+            });
+            
+            checkboxCell.appendChild(checkbox);
+            row.appendChild(checkboxCell);
+            
+            const titleCell = document.createElement('td');
+            titleCell.textContent = tab.title;
+            row.appendChild(titleCell);
+            
+            const urlCell = document.createElement('td');
+            urlCell.className = 'url-cell';
+            urlCell.textContent = tab.url;
+            row.appendChild(urlCell);
+            
+            const summaryCell = document.createElement('td');
+            summaryCell.textContent = 'Loading...';
+            row.appendChild(summaryCell);
+            
+            tabsTableBody.appendChild(row);
+            
+            // Get summary for the tab
+            getTabSummary(tab.url, summaryCell);
         }
     }
 
@@ -127,7 +239,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function getTabSummary(url, summaryCell) {
         try {
-            const result = await chrome.storage.local.get(['geminiApiKey']);
+            const result = await chrome.storage.sync.get(['geminiApiKey']);
             const apiKey = result.geminiApiKey;
 
             if (!apiKey) {
@@ -164,6 +276,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                 });
 
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const data = await response.json();
                 if (data.candidates && data.candidates[0] && data.candidates[0].content) {
                     summaryCell.textContent = data.candidates[0].content.parts[0].text;
@@ -180,13 +296,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Listen for settings updates
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        if (request.action === 'settingsUpdated') {
-            // Refresh the tab list if needed
-            if (tabsTableBody.children.length > 0) {
-                fetchAndDisplayTabs();
-            }
+    // Only refresh tabs when the popup becomes visible, not when it loses focus
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible') {
+            await refreshTabsList();
         }
     });
 }); 

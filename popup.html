@@ -19,7 +19,7 @@
             <div class="collection-section">
                 <div class="collection-input-group">
                     <label for="collectionName">Collection Name:</label>
-                    <input type="text" id="collectionName" placeholder="Enter collection name" maxlength="30">
+                    <input type="text" id="collectionName" placeholder="Enter collection name and press Enter">
                 </div>
                 <div class="button-group">
                     <button id="closeSelected" class="secondary-button">Close Selected</button>
@@ -29,23 +29,55 @@
             </div>
         </div>
 
-        <div class="tabs-container">
-            <div class="select-all">
-                <input type="checkbox" id="selectAll">
-                <label for="selectAll">Select All</label>
+        <!-- Main content area -->
+        <div id="mainContent" class="content-section">
+            <div class="tabs-container">
+                <div class="select-all">
+                    <input type="checkbox" id="selectAll">
+                    <label for="selectAll">Select All</label>
+                </div>
+                <table id="tabsTable">
+                    <thead>
+                        <tr>
+                            <th class="checkbox-column">Select</th>
+                            <th class="title-column">Title</th>
+                            <th class="url-column">URL</th>
+                            <th class="summary-column">Summary</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabsTableBody">
+                    </tbody>
+                </table>
             </div>
-            <table id="tabsTable">
-                <thead>
-                    <tr>
-                        <th class="checkbox-column">Select</th>
-                        <th class="title-column">Title</th>
-                        <th class="url-column">URL</th>
-                        <th class="summary-column">Summary</th>
-                    </tr>
-                </thead>
-                <tbody id="tabsTableBody">
-                </tbody>
-            </table>
+        </div>
+
+        <!-- Settings content area (hidden by default) -->
+        <div id="settingsContent" class="content-section" style="display: none;">
+            <div class="settings-container">
+                <h2>Settings</h2>
+                <div class="settings-group">
+                    <div class="input-group">
+                        <label for="geminiApiKey">Gemini API Key:</label>
+                        <input type="password" id="geminiApiKey" placeholder="Enter your Gemini API key">
+                        <p class="help-text">Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></p>
+                    </div>
+                    <div class="input-group">
+                        <label for="notionApiKey">Notion API Key:</label>
+                        <input type="password" id="notionApiKey" placeholder="Enter your Notion API key">
+                        <p class="help-text">Get your API key from <a href="https://www.notion.so/my-integrations" target="_blank">Notion Integrations</a></p>
+                    </div>
+                    <div class="input-group">
+                        <label for="notionDatabaseId">Notion Database ID:</label>
+                        <input type="text" id="notionDatabaseId" placeholder="Enter your Notion Database ID">
+                        <p class="help-text">The ID of the database where tabs will be saved</p>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button id="saveSettings" class="primary-button">Save Settings</button>
+                    <button id="closeSettings" class="secondary-button">Close</button>
+                </div>
+                <div id="status" class="status"></div>
+            </div>
         </div>
     </div>
     <script src="popup.js"></script>
