@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>nTabs</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <input type="text" id="collectionName" placeholder="Enter collection name">
+            <div class="button-group">
+                <button id="fetchTabs">Fetch Tabs</button>
+                <button id="closeSelected">Close Selected Tabs</button>
+                <button id="openSelected">Open Selected Tabs</button>
+                <button id="saveToNotion" disabled>Save to Notion (Coming Soon)</button>
+            </div>
+        </div>
+        
+        <div class="api-key-section">
+            <input type="password" id="geminiApiKey" placeholder="Enter Gemini API Key">
+            <button id="saveApiKey">Save API Key</button>
+        </div>
+
+        <div class="tabs-container">
+            <div class="select-all">
+                <input type="checkbox" id="selectAll">
+                <label for="selectAll">Select All</label>
+            </div>
+            <table id="tabsTable">
+                <thead>
+                    <tr>
+                        <th>Select</th>
+                        <th>Title</th>
+                        <th>URL</th>
+                        <th>Summary</th>
+                    </tr>
+                </thead>
+                <tbody id="tabsTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html> 
