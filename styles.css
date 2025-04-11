@@ -1,81 +1,148 @@
+:root {
+    --primary-color: #007AFF;
+    --secondary-color: #f0f0f0;
+    --background-color: #ffffff;
+    --text-color: #333333;
+    --border-color: #e0e0e0;
+    --container-border: #d1d1d1;
+}
+
 body {
     width: 800px;
     min-height: 600px;
     margin: 0;
     padding: 20px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    box-sizing: border-box;
 }
 
 .container {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    border: 1px solid var(--container-border);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .header {
     display: flex;
     flex-direction: column;
+    gap: 16px;
+}
+
+.title-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px;
+}
+
+h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.icon-button {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    color: var(--text-color);
+    border-radius: 8px;
+    transition: background-color 0.3s;
+}
+
+.icon-button:hover {
+    background-color: var(--secondary-color);
+}
+
+.collection-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 10px;
+}
+
+.collection-input-group {
+    display: flex;
+    align-items: center;
     gap: 10px;
 }
 
+.collection-input-group label {
+    font-size: 14px;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
 #collectionName {
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 16px;
+    width: 200px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
 }
 
 .button-group {
     display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
+    gap: 8px;
 }
 
-button {
-    padding: 8px 16px;
-    background-color: #4CAF50;
+.primary-button {
+    background-color: var(--primary-color);
     color: white;
     border: none;
-    border-radius: 4px;
+    padding: 8px 16px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 14px;
-    transition: background-color 0.3s;
+    transition: background-color 0.2s;
 }
 
-button:hover {
-    background-color: #45a049;
+.primary-button:hover {
+    background-color: #0056b3;
 }
 
-button:disabled {
-    background-color: #cccccc;
+.secondary-button {
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.secondary-button:hover {
+    background-color: #e0e0e0;
+}
+
+.secondary-button:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
 }
 
-.api-key-section {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-#geminiApiKey {
-    flex: 1;
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-}
-
 .tabs-container {
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 10px;
 }
 
 .select-all {
-    margin-bottom: 10px;
-    padding: 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-table {
+#tabsTable {
     width: 100%;
     border-collapse: collapse;
 }
@@ -83,27 +150,30 @@ table {
 th, td {
     padding: 12px;
     text-align: left;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--border-color);
 }
 
-th {
-    background-color: #f2f2f2;
-    font-weight: bold;
+.checkbox-column {
+    width: 40px;
 }
 
-tr:hover {
-    background-color: #f5f5f5;
+.title-column {
+    width: 30%;
+}
+
+.url-column {
+    width: 40%;
+}
+
+.summary-column {
+    width: 30%;
+}
+
+.url-cell {
+    word-break: break-word;
+    max-width: 0;
 }
 
 input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-}
-
-#tabsTableBody tr {
-    transition: background-color 0.3s;
-}
-
-#tabsTableBody tr.selected {
-    background-color: #e6f7ff;
+    margin: 0;
 } 
