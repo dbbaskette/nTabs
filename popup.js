@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const settingsContent = document.getElementById('settingsContent');
     const saveSettingsBtn = document.getElementById('saveSettings');
     const closeSettingsBtn = document.getElementById('closeSettings');
-    const geminiApiKeyInput = document.getElementById('geminiApiKey');
     const notionApiKeyInput = document.getElementById('notionApiKey');
     const notionDatabaseIdInput = document.getElementById('notionDatabaseId');
 
@@ -22,10 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Load saved settings
-    const savedSettings = await chrome.storage.sync.get(['geminiApiKey', 'notionApiKey', 'notionDatabaseId']);
-    if (savedSettings.geminiApiKey) {
-        geminiApiKeyInput.value = savedSettings.geminiApiKey;
-    }
+    const savedSettings = await chrome.storage.sync.get(['notionApiKey', 'notionDatabaseId']);
     if (savedSettings.notionApiKey) {
         notionApiKeyInput.value = savedSettings.notionApiKey;
     }
@@ -56,12 +52,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Save settings
     saveSettingsBtn.addEventListener('click', async () => {
-        const apiKey = geminiApiKeyInput.value;
         const notionApiKey = notionApiKeyInput.value;
         const notionDatabaseId = notionDatabaseIdInput.value;
         
         await chrome.storage.sync.set({
-            'geminiApiKey': apiKey,
             'notionApiKey': notionApiKey,
             'notionDatabaseId': notionDatabaseId
         });
@@ -111,14 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             urlCell.textContent = tab.url;
             row.appendChild(urlCell);
             
-            const summaryCell = document.createElement('td');
-            summaryCell.textContent = 'Loading...';
-            row.appendChild(summaryCell);
-            
             tabsTableBody.appendChild(row);
-            
-            // Get summary for the tab
-            getTabSummary(tab.url, summaryCell);
         }
     }
 
@@ -186,14 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             urlCell.textContent = tab.url;
             row.appendChild(urlCell);
             
-            const summaryCell = document.createElement('td');
-            summaryCell.textContent = 'Loading...';
-            row.appendChild(summaryCell);
-            
             tabsTableBody.appendChild(row);
-            
-            // Get summary for the tab
-            getTabSummary(tab.url, summaryCell);
         }
     }
 
@@ -234,65 +214,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             row.classList.add('selected');
         } else {
             row.classList.remove('selected');
-        }
-    }
-
-    async function getTabSummary(url, summaryCell) {
-        try {
-            const result = await chrome.storage.sync.get(['geminiApiKey']);
-            const apiKey = result.geminiApiKey;
-
-            if (!apiKey) {
-                summaryCell.textContent = 'API Key not set';
-                return;
-            }
-
-            // Check if URL is a Google Doc/Sheet/Slides
-            if (url.includes('docs.google.com') || url.includes('sheets.google.com') || url.includes('slides.google.com')) {
-                summaryCell.textContent = 'Google Doc/Sheet/Slides';
-                return;
-            }
-
-            // Check if URL is internal or private
-            if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || 
-                url.startsWith('file://') || url.startsWith('about:')) {
-                summaryCell.textContent = 'Private';
-                return;
-            }
-
-            try {
-                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{
-                                text: `Please provide a brief summary of the content at this URL: ${url}`
-                            }]
-                        }]
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-                    summaryCell.textContent = data.candidates[0].content.parts[0].text;
-                } else {
-                    summaryCell.textContent = 'Unable to generate summary';
-                }
-            } catch (error) {
-                console.error('Error fetching summary:', error);
-                summaryCell.textContent = 'Error generating summary';
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            summaryCell.textContent = 'Error';
         }
     }
 
