@@ -21,10 +21,12 @@
                     <label for="collectionName">Collection Name:</label>
                     <input type="text" id="collectionName" placeholder="Enter collection name and press Enter">
                 </div>
-                <div class="button-group">
-                    <button id="closeSelected" class="secondary-button">Close Selected</button>
-                    <button id="openSelected" class="secondary-button">Open Selected</button>
-                    <button id="saveToNotion" class="secondary-button" disabled>Save to Notion</button>
+                <div class="button-container">
+                    <button id="fetchTabs">Refresh Tabs</button>
+                    <button id="closeSelected">Close Selected</button>
+                    <button id="openSelected">Open Selected</button>
+                    <button id="syncToNotion">Sync to Notion</button>
+                    <button id="addToCollection">Add to Collection</button>
                 </div>
             </div>
         </div>
@@ -42,6 +44,7 @@
                             <th class="checkbox-column">Select</th>
                             <th class="title-column">Title</th>
                             <th class="url-column">URL</th>
+                            <th class="collection-column">Collection</th>
                         </tr>
                     </thead>
                     <tbody id="tabsTableBody">

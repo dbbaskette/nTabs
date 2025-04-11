@@ -232,4 +232,18 @@ input[type="checkbox"] {
 
 .help-text a:hover {
     text-decoration: underline;
+}
+
+.collection-column {
+    width: 20%;
+    text-align: left;
+    padding: 8px;
+    border-bottom: 1px solid #ddd;
+}
+
+.collection-cell {
+    padding: 8px;
+    border-bottom: 1px solid #ddd;
+    word-wrap: break-word;
+    max-width: 200px;
 } 
