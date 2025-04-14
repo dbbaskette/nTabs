@@ -155,4 +155,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         status.textContent = `Added ${tabIds.length} tabs to collection "${collectionName}"`;
         await fetchAndDisplayTabs();
     });
+
+    // Select all functionality
+    document.getElementById('selectAllCheckbox').addEventListener('change', function(e) {
+        const checkboxes = document.querySelectorAll('input[type="checkbox"][name="tabCheckbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = e.target.checked;
+        });
+    });
+
+    // Update select all checkbox when individual checkboxes change
+    document.addEventListener('change', function(e) {
+        if (e.target.matches('input[type="checkbox"][name="tabCheckbox"]')) {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"][name="tabCheckbox"]');
+            const allChecked = Array.from(checkboxes).every(checkbox => checkbox.checked);
+            document.getElementById('selectAllCheckbox').checked = allChecked;
+        }
+    });
 }); 

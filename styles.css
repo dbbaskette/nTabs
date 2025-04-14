@@ -213,18 +213,22 @@ button:active {
     box-shadow: 0 2px 0 #4c51bf;
 }
 
+.table-container {
+    width: 100%;
+    overflow-y: auto;
+    max-height: calc(100% - 200px);
+    margin-top: 15px;
+    padding: 0 10px;
+    box-sizing: border-box;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 15px;
     background-color: white;
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    padding: 0 10px;
-    box-sizing: border-box;
-    overflow-y: auto;
-    max-height: calc(100% - 100px); /* Adjust based on other content */
 }
 
 th, td {
@@ -455,4 +459,37 @@ tr.selected {
 
 .collections-list li:last-child {
     border-bottom: none;
+}
+
+/* Select all checkbox styles */
+.select-all-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 0 10px;
+}
+
+.select-all-container input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.select-all-container label {
+    font-size: 14px;
+    color: #4a5568;
+    cursor: pointer;
+}
+
+.settings-icon {
+    font-size: 20px;
+    color: #4a5568;
+    cursor: pointer;
+    padding: 8px;
+    transition: color 0.2s ease;
+}
+
+.settings-icon:hover {
+    color: #2d3748;
 } 
