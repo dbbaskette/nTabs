@@ -77,18 +77,25 @@ h1 {
 }
 
 .collection-input {
-    margin-bottom: 15px;
+    margin: 10px 0;
     padding: 0 10px;
-    box-sizing: border-box;
 }
 
 .collection-input input {
     width: 100%;
-    padding: 8px;
-    border: 2px solid #e2e8f0;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
     border-radius: 6px;
     font-size: 14px;
+    color: #4a5568;
+    background-color: white;
     box-sizing: border-box;
+}
+
+.collection-input input:focus {
+    outline: none;
+    border-color: #4c51bf;
+    box-shadow: 0 0 0 2px rgba(76, 81, 191, 0.1);
 }
 
 .button-container {

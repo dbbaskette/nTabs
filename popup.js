@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const collectionNameInput = document.getElementById('collectionName');
     const tabsList = document.getElementById('tabsList');
     const status = document.getElementById('status');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 
     // Load saved settings
     const savedSettings = await chrome.storage.sync.get(['notionApiKey', 'notionDatabaseId']);
@@ -157,19 +158,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Select all functionality
-    document.getElementById('selectAllCheckbox').addEventListener('change', function(e) {
-        const checkboxes = document.querySelectorAll('input[type="checkbox"][name="tabCheckbox"]');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = e.target.checked;
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function(e) {
+            const checkboxes = document.querySelectorAll('.tab-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+            });
         });
-    });
+    }
 
     // Update select all checkbox when individual checkboxes change
     document.addEventListener('change', function(e) {
-        if (e.target.matches('input[type="checkbox"][name="tabCheckbox"]')) {
-            const checkboxes = document.querySelectorAll('input[type="checkbox"][name="tabCheckbox"]');
+        if (e.target.matches('.tab-checkbox')) {
+            const checkboxes = document.querySelectorAll('.tab-checkbox');
             const allChecked = Array.from(checkboxes).every(checkbox => checkbox.checked);
-            document.getElementById('selectAllCheckbox').checked = allChecked;
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allChecked;
+            }
         }
     });
 }); 
