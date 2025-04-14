@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Fetch and display tabs
     async function fetchAndDisplayTabs() {
         const tabs = await chrome.tabs.query({});
+        const collectionsData = await chrome.storage.sync.get('collections');
+        const collections = collectionsData.collections || {};
         tabsList.innerHTML = '';
         
         tabs.forEach(tab => {
@@ -33,7 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </td>
                 <td class="title-column">${tab.title}</td>
                 <td class="url-column">${tab.url}</td>
-                <td class="collection-column">${tab.collection || ''}</td>
+                <td class="collection-column">${collections[tab.id] || ''}</td>
             `;
             tabsList.appendChild(row);
         });
@@ -137,25 +139,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     addToCollectionBtn.addEventListener('click', async () => {
         const collectionName = collectionNameInput.value.trim();
         if (!collectionName) {
-            status.textContent = 'Please enter a collection name';
+            showStatus('Please enter a collection name');
             return;
         }
 
         const selectedCheckboxes = document.querySelectorAll('.tab-checkbox:checked');
         if (selectedCheckboxes.length === 0) {
-            status.textContent = 'Please select at least one tab';
+            showStatus('Please select at least one tab');
             return;
         }
 
         const tabIds = Array.from(selectedCheckboxes).map(checkbox => parseInt(checkbox.dataset.tabId));
+        const collectionsData = await chrome.storage.sync.get('collections');
+        const collections = collectionsData.collections || {};
         
-        for (const tabId of tabIds) {
-            await chrome.tabs.update(tabId, { collection: collectionName });
-        }
+        // Update collections for selected tabs while preserving existing collections
+        tabIds.forEach(tabId => {
+            collections[tabId] = collectionName;
+        });
+        
+        await chrome.storage.sync.set({ collections });
 
-        status.textContent = `Added ${tabIds.length} tabs to collection "${collectionName}"`;
+        showStatus(`Added ${tabIds.length} tabs to collection "${collectionName}"`);
         await fetchAndDisplayTabs();
     });
+
+    // Helper function to show status messages
+    function showStatus(message) {
+        const status = document.getElementById('status');
+        status.textContent = message;
+        status.classList.add('show');
+        setTimeout(() => {
+            status.classList.remove('show');
+        }, 3000);
+    }
 
     // Select all functionality
     if (selectAllCheckbox) {
@@ -175,6 +192,88 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (selectAllCheckbox) {
                 selectAllCheckbox.checked = allChecked;
             }
+        }
+    });
+
+    // Sync to Notion functionality
+    syncToNotionBtn.addEventListener('click', async () => {
+        const notionApiKey = document.getElementById('notionApiKey').value.trim();
+        const notionDatabaseId = document.getElementById('notionDatabaseId').value.trim();
+
+        if (!notionApiKey) {
+            showStatus('Please enter your Notion API Key in settings');
+            return;
+        }
+
+        if (!notionDatabaseId) {
+            showStatus('Please enter your Notion Database ID in settings');
+            return;
+        }
+
+        const selectedCheckboxes = document.querySelectorAll('.tab-checkbox:checked');
+        if (selectedCheckboxes.length === 0) {
+            showStatus('Please select at least one tab to sync');
+            return;
+        }
+
+        try {
+            showStatus('Syncing to Notion...');
+            const tabIds = Array.from(selectedCheckboxes).map(checkbox => parseInt(checkbox.dataset.tabId));
+            const tabs = await Promise.all(tabIds.map(id => chrome.tabs.get(id)));
+            const collectionsData = await chrome.storage.sync.get('collections');
+            const collections = collectionsData.collections || {};
+            
+            for (const tab of tabs) {
+                const response = await fetch('https://api.notion.com/v1/pages', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${notionApiKey}`,
+                        'Content-Type': 'application/json',
+                        'Notion-Version': '2022-06-28'
+                    },
+                    body: JSON.stringify({
+                        parent: { database_id: notionDatabaseId },
+                        properties: {
+                            Name: {
+                                title: [
+                                    {
+                                        text: {
+                                            content: tab.title
+                                        }
+                                    }
+                                ]
+                            },
+                            URL: {
+                                url: tab.url
+                            },
+                            Collection: {
+                                rich_text: [
+                                    {
+                                        text: {
+                                            content: collections[tab.id] || 'Uncategorized'
+                                        }
+                                    }
+                                ]
+                            },
+                            'Created Date': {
+                                date: {
+                                    start: new Date().toISOString().split('T')[0]
+                                }
+                            }
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to sync to Notion');
+                }
+            }
+
+            showStatus(`Successfully synced ${tabs.length} tabs to Notion`);
+        } catch (error) {
+            console.error('Notion sync error:', error);
+            showStatus(`Error syncing to Notion: ${error.message}`);
         }
     });
 }); 
