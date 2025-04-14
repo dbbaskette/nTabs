@@ -1,192 +1,158 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize elements
     const fetchTabsBtn = document.getElementById('fetchTabs');
     const closeSelectedBtn = document.getElementById('closeSelected');
     const openSelectedBtn = document.getElementById('openSelected');
-    const selectAllCheckbox = document.getElementById('selectAll');
-    const tabsTableBody = document.getElementById('tabsTableBody');
-    const settingsButton = document.getElementById('settingsButton');
+    const syncToNotionBtn = document.getElementById('syncToNotion');
+    const addToCollectionBtn = document.getElementById('addToCollection');
+    const viewCollectionsBtn = document.getElementById('viewCollections');
     const collectionNameInput = document.getElementById('collectionName');
+    const tabsList = document.getElementById('tabsList');
+    const status = document.getElementById('status');
 
-    // Load saved API key
-    chrome.storage.local.get(['geminiApiKey'], function(result) {
-        if (result.geminiApiKey) {
-            collectionNameInput.value = result.geminiApiKey;
-        }
-    });
-
-    // Save API key
-    collectionNameInput.addEventListener('change', function() {
-        const apiKey = collectionNameInput.value;
-        chrome.storage.local.set({ geminiApiKey: apiKey }, function() {
-            alert('API Key saved successfully!');
-        });
-    });
-
-    // Open settings window
-    settingsButton.addEventListener('click', function() {
-        chrome.windows.create({
-            url: 'settings.html',
-            type: 'popup',
-            width: 600,
-            height: 500
-        });
-    });
-
-    // Select all functionality
-    selectAllCheckbox.addEventListener('change', function() {
-        const checkboxes = document.querySelectorAll('.tab-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = selectAllCheckbox.checked;
-            updateRowSelection(checkbox);
-        });
-    });
-
-    async function fetchAndDisplayTabs() {
-        const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const tabs = await chrome.tabs.query({ currentWindow: true });
-        
-        tabsTableBody.innerHTML = '';
-        
-        for (const tab of tabs) {
-            if (tab.id !== currentTab.id) {
-                const row = document.createElement('tr');
-                const checkboxCell = document.createElement('td');
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.className = 'tab-checkbox';
-                checkbox.dataset.tabId = tab.id;
-                checkbox.dataset.url = tab.url;
-                
-                checkbox.addEventListener('change', function() {
-                    updateRowSelection(this);
-                });
-                
-                checkboxCell.appendChild(checkbox);
-                row.appendChild(checkboxCell);
-                
-                const titleCell = document.createElement('td');
-                titleCell.textContent = tab.title;
-                row.appendChild(titleCell);
-                
-                const urlCell = document.createElement('td');
-                urlCell.className = 'url-cell';
-                urlCell.textContent = tab.url;
-                row.appendChild(urlCell);
-                
-                const summaryCell = document.createElement('td');
-                summaryCell.textContent = 'Loading...';
-                row.appendChild(summaryCell);
-                
-                tabsTableBody.appendChild(row);
-                
-                // Get summary for the tab
-                getTabSummary(tab.url, summaryCell);
-            }
-        }
+    // Load saved settings
+    const savedSettings = await chrome.storage.sync.get(['notionApiKey', 'notionDatabaseId']);
+    if (savedSettings.notionApiKey) {
+        document.getElementById('notionApiKey').value = savedSettings.notionApiKey;
+    }
+    if (savedSettings.notionDatabaseId) {
+        document.getElementById('notionDatabaseId').value = savedSettings.notionDatabaseId;
     }
 
-    // Automatically fetch and display tabs when popup opens
-    fetchAndDisplayTabs();
+    // Fetch and display tabs
+    async function fetchAndDisplayTabs() {
+        const tabs = await chrome.tabs.query({});
+        tabsList.innerHTML = '';
+        
+        tabs.forEach(tab => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="checkbox-column">
+                    <input type="checkbox" class="tab-checkbox" data-tab-id="${tab.id}">
+                </td>
+                <td class="title-column">${tab.title}</td>
+                <td class="url-column">${tab.url}</td>
+                <td class="collection-column">${tab.collection || ''}</td>
+            `;
+            tabsList.appendChild(row);
+        });
+    }
 
-    // Close selected tabs
-    closeSelectedBtn.addEventListener('click', function() {
+    // Initial fetch of tabs
+    await fetchAndDisplayTabs();
+
+    // Event listeners for buttons
+    fetchTabsBtn.addEventListener('click', fetchAndDisplayTabs);
+
+    closeSelectedBtn.addEventListener('click', async () => {
         const selectedCheckboxes = document.querySelectorAll('.tab-checkbox:checked');
         const tabIds = Array.from(selectedCheckboxes).map(checkbox => parseInt(checkbox.dataset.tabId));
-        
-        // Remove the rows from the table before closing the tabs
-        selectedCheckboxes.forEach(checkbox => {
-            const row = checkbox.closest('tr');
-            row.remove();
-        });
-
-        // Update select-all checkbox state
-        const remainingCheckboxes = document.querySelectorAll('.tab-checkbox');
-        const allChecked = remainingCheckboxes.length > 0 && Array.from(remainingCheckboxes).every(cb => cb.checked);
-        selectAllCheckbox.checked = allChecked;
-
-        // Close the tabs
-        chrome.tabs.remove(tabIds);
+        await chrome.tabs.remove(tabIds);
+        await fetchAndDisplayTabs();
     });
 
-    // Open selected tabs
-    openSelectedBtn.addEventListener('click', function() {
+    openSelectedBtn.addEventListener('click', async () => {
         const selectedCheckboxes = document.querySelectorAll('.tab-checkbox:checked');
-        selectedCheckboxes.forEach(checkbox => {
-            chrome.tabs.create({ url: checkbox.dataset.url });
-        });
+        for (const checkbox of selectedCheckboxes) {
+            const tabId = parseInt(checkbox.dataset.tabId);
+            const tab = await chrome.tabs.get(tabId);
+            await chrome.tabs.create({ url: tab.url });
+        }
     });
 
-    function updateRowSelection(checkbox) {
-        const row = checkbox.closest('tr');
-        if (checkbox.checked) {
-            row.classList.add('selected');
-        } else {
-            row.classList.remove('selected');
+    // Settings functionality
+    document.getElementById('settingsButton').addEventListener('click', () => {
+        document.getElementById('mainContent').style.display = 'none';
+        document.getElementById('settingsContent').style.display = 'block';
+    });
+
+    document.getElementById('closeSettings').addEventListener('click', () => {
+        document.getElementById('settingsContent').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+    });
+
+    document.getElementById('saveSettings').addEventListener('click', async () => {
+        const notionApiKey = document.getElementById('notionApiKey').value;
+        const notionDatabaseId = document.getElementById('notionDatabaseId').value;
+        
+        await chrome.storage.sync.set({
+            notionApiKey,
+            notionDatabaseId
+        });
+        
+        status.textContent = 'Settings saved successfully!';
+        setTimeout(() => {
+            status.textContent = '';
+        }, 3000);
+    });
+
+    // Collections functionality
+    viewCollectionsBtn.addEventListener('click', async () => {
+        document.getElementById('mainContent').style.display = 'none';
+        document.getElementById('collectionsContent').style.display = 'block';
+        await displayCollections();
+    });
+
+    document.getElementById('closeCollections').addEventListener('click', () => {
+        document.getElementById('collectionsContent').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+    });
+
+    async function displayCollections() {
+        const collectionsList = document.getElementById('collectionsList');
+        collectionsList.innerHTML = '';
+
+        // Get all tabs
+        const tabs = await chrome.tabs.query({});
+        
+        // Extract unique collections
+        const collections = new Set();
+        tabs.forEach(tab => {
+            if (tab.collection) {
+                collections.add(tab.collection);
+            }
+        });
+
+        // Sort collections alphabetically
+        const sortedCollections = Array.from(collections).sort();
+
+        // Display collections
+        sortedCollections.forEach(collection => {
+            const li = document.createElement('li');
+            li.textContent = collection;
+            collectionsList.appendChild(li);
+        });
+
+        if (collections.size === 0) {
+            const li = document.createElement('li');
+            li.textContent = 'No collections found';
+            li.style.color = '#718096';
+            li.style.fontStyle = 'italic';
+            collectionsList.appendChild(li);
         }
     }
 
-    async function getTabSummary(url, summaryCell) {
-        try {
-            const result = await chrome.storage.local.get(['geminiApiKey']);
-            const apiKey = result.geminiApiKey;
-
-            if (!apiKey) {
-                summaryCell.textContent = 'API Key not set';
-                return;
-            }
-
-            // Check if URL is a Google Doc/Sheet/Slides
-            if (url.includes('docs.google.com') || url.includes('sheets.google.com') || url.includes('slides.google.com')) {
-                summaryCell.textContent = 'Google Doc/Sheet/Slides';
-                return;
-            }
-
-            // Check if URL is internal or private
-            if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || 
-                url.startsWith('file://') || url.startsWith('about:')) {
-                summaryCell.textContent = 'Private';
-                return;
-            }
-
-            try {
-                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{
-                                text: `Please provide a brief summary of the content at this URL: ${url}`
-                            }]
-                        }]
-                    })
-                });
-
-                const data = await response.json();
-                if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-                    summaryCell.textContent = data.candidates[0].content.parts[0].text;
-                } else {
-                    summaryCell.textContent = 'Unable to generate summary';
-                }
-            } catch (error) {
-                console.error('Error fetching summary:', error);
-                summaryCell.textContent = 'Error generating summary';
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            summaryCell.textContent = 'Error';
+    // Add to collection functionality
+    addToCollectionBtn.addEventListener('click', async () => {
+        const collectionName = collectionNameInput.value.trim();
+        if (!collectionName) {
+            status.textContent = 'Please enter a collection name';
+            return;
         }
-    }
 
-    // Listen for settings updates
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        if (request.action === 'settingsUpdated') {
-            // Refresh the tab list if needed
-            if (tabsTableBody.children.length > 0) {
-                fetchAndDisplayTabs();
-            }
+        const selectedCheckboxes = document.querySelectorAll('.tab-checkbox:checked');
+        if (selectedCheckboxes.length === 0) {
+            status.textContent = 'Please select at least one tab';
+            return;
         }
+
+        const tabIds = Array.from(selectedCheckboxes).map(checkbox => parseInt(checkbox.dataset.tabId));
+        
+        for (const tabId of tabIds) {
+            await chrome.tabs.update(tabId, { collection: collectionName });
+        }
+
+        status.textContent = `Added ${tabIds.length} tabs to collection "${collectionName}"`;
+        await fetchAndDisplayTabs();
     });
 }); 
