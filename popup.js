@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Render Functions ---
     function createTabRow(tab, collections) {
+        if (tab.url && tab.url.startsWith('chrome://')) return null;
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="checkbox-column">
@@ -86,7 +87,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const collections = collectionsData.collections || {};
         tabsList.innerHTML = '';
         const fragment = document.createDocumentFragment();
-        tabs.forEach(tab => fragment.appendChild(createTabRow(tab, collections)));
+        tabs.forEach(tab => {
+            const row = createTabRow(tab, collections);
+            if (row) fragment.appendChild(row);
+        });
         tabsList.appendChild(fragment);
     }
     async function displayCollections() {
@@ -204,6 +208,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }, 1200);
     syncToNotionBtn.addEventListener('click', debouncedSyncToNotion);
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function(e) {
+            const checkboxes = document.querySelectorAll('.tab-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+            });
+        });
+    }
     document.addEventListener('change', function(e) {
         if (e.target.matches('.tab-checkbox')) {
             const checkboxes = document.querySelectorAll('.tab-checkbox');
