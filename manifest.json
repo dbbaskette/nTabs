@@ -8,6 +8,9 @@
     "tabs",
     "storage"
   ],
+  "host_permissions": [
+    "https://api.notion.com/"
+  ],
   "action": {
     "default_icon": {
       "16": "icons/icon16.png",
