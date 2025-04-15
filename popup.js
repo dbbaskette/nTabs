@@ -68,20 +68,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     function createTabRow(tab, collections) {
         if (tab.url && tab.url.startsWith('chrome://')) return null;
         const row = document.createElement('tr');
+        // Defensive: handle legacy array or string
+        let mostRecent = '';
+        if (Array.isArray(collections[tab.id])) {
+            mostRecent = collections[tab.id].length > 0 ? collections[tab.id][collections[tab.id].length - 1] : '';
+        } else if (typeof collections[tab.id] === 'string') {
+            mostRecent = collections[tab.id];
+        }
+        const collectionsHtml = mostRecent ? `<span class="collection-badge">${escapeHtml(mostRecent)}</span>` : '';
         row.innerHTML = `
             <td class="checkbox-column">
                 <input type="checkbox" class="tab-checkbox" data-tab-id="${tab.id}">
             </td>
             <td class="title-column">${escapeHtml(tab.title)}</td>
             <td class="url-column"><a href="${escapeHtml(tab.url)}" target="_blank">${escapeHtml(tab.url)}</a></td>
-            <td class="collection-column">${escapeHtml(collections[tab.id] || '')}</td>
+            <td class="collection-column">${collectionsHtml}</td>
         `;
         return row;
     }
     // --- End Render Functions ---
 
     // --- Main Logic ---
-    async function fetchAndDisplayTabs() {
+    async function fetchAndDisplayTabs(checkedTabIds = []) {
         const tabs = await chrome.tabs.query({ currentWindow: true });
         const collectionsData = await chrome.storage.sync.get('collections');
         const collections = collectionsData.collections || {};
@@ -92,6 +100,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (row) fragment.appendChild(row);
         });
         tabsList.appendChild(fragment);
+        // Restore checked state
+        if (checkedTabIds.length > 0) {
+            document.querySelectorAll('.tab-checkbox').forEach(cb => {
+                if (checkedTabIds.includes(parseInt(cb.dataset.tabId))) {
+                    cb.checked = true;
+                }
+            });
+        }
     }
     async function displayCollections() {
         collectionsList.innerHTML = '';
@@ -145,23 +161,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         await displayCollections();
     });
     closeCollections.addEventListener('click', () => showSection('mainContent'));
-    addToCollectionBtn.addEventListener('click', async () => {
-        const collectionName = collectionNameInput.value.trim();
-        if (!isValidCollectionName(collectionName)) {
-            showStatus('Invalid collection name. Only letters, numbers, spaces, dashes, and underscores allowed.');
+    const collectionNameInputEl = collectionNameInput;
+    addToCollectionBtn.addEventListener('click', async function() {
+        const tabIds = Array.from(document.querySelectorAll('.tab-checkbox:checked')).map(cb => parseInt(cb.dataset.tabId));
+        const collectionNameInput = collectionNameInputEl.value.trim();
+        if (!collectionNameInput) {
+            showStatus('Please enter a collection name.');
             return;
         }
-        const tabIds = Array.from(document.querySelectorAll('.tab-checkbox:checked')).map(cb => parseInt(cb.dataset.tabId));
-        if (tabIds.length === 0) {
-            showStatus('Please select at least one tab');
+        if (!isValidCollectionName(collectionNameInput)) {
+            showStatus('Invalid collection name. Only letters, numbers, spaces, dashes, and underscores allowed.');
             return;
         }
         const collectionsData = await chrome.storage.sync.get('collections');
         const collections = collectionsData.collections || {};
-        tabIds.forEach(tabId => { collections[tabId] = collectionName; });
+        for (const tabId of tabIds) {
+            collections[tabId] = collectionNameInput;
+        }
         await chrome.storage.sync.set({ collections });
-        showStatus(`Added ${tabIds.length} tabs to collection "${collectionName}"`);
-        await fetchAndDisplayTabs();
+        showStatus('Added to collection.');
+        await fetchAndDisplayTabs(tabIds);
     });
     const debouncedSyncToNotion = debounce(async function() {
         const tabIds = Array.from(document.querySelectorAll('.tab-checkbox:checked')).map(cb => parseInt(cb.dataset.tabId));
