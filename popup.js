@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', async () => {
+    // Always clear collections on popup open
+    chrome.storage.sync.set({ collections: {} });
+    console.log('DEBUG: Collections cleared on popup open');
+
     // Initialize elements
     const fetchTabsBtn = document.getElementById('fetchTabs');
     const closeSelectedBtn = document.getElementById('closeSelected');
@@ -20,6 +24,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const collectionsContent = document.getElementById('collectionsContent');
     const closeCollections = document.getElementById('closeCollections');
     const collectionsList = document.getElementById('collectionsList');
+    const openCollectionBtn = document.getElementById('openCollectionBtn');
+    const collectionsLoading = document.getElementById('collectionsLoading');
 
     // Load saved settings
     const savedSettings = await chrome.storage.sync.get(['notionApiKey', 'notionDatabaseId']);
@@ -29,6 +35,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (savedSettings.notionDatabaseId) {
         notionDatabaseIdInput.value = savedSettings.notionDatabaseId;
     }
+
+    // On extension startup, clear all collections
+    chrome.runtime.onStartup.addListener(async () => {
+        await chrome.storage.sync.set({ collections: {} });
+        console.log('DEBUG: Collections cleared on startup');
+    });
 
     // --- Utility Functions ---
     function debounce(fn, delay) {
@@ -68,20 +80,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     function createTabRow(tab, collections) {
         if (tab.url && tab.url.startsWith('chrome://')) return null;
         const row = document.createElement('tr');
+        // Defensive: handle legacy array or string
+        let mostRecent = '';
+        if (Array.isArray(collections[tab.id])) {
+            mostRecent = collections[tab.id].length > 0 ? collections[tab.id][collections[tab.id].length - 1] : '';
+        } else if (typeof collections[tab.id] === 'string') {
+            mostRecent = collections[tab.id];
+        }
+        const collectionsHtml = mostRecent ? `<span class="collection-badge">${escapeHtml(mostRecent)}</span>` : '';
         row.innerHTML = `
             <td class="checkbox-column">
                 <input type="checkbox" class="tab-checkbox" data-tab-id="${tab.id}">
             </td>
             <td class="title-column">${escapeHtml(tab.title)}</td>
             <td class="url-column"><a href="${escapeHtml(tab.url)}" target="_blank">${escapeHtml(tab.url)}</a></td>
-            <td class="collection-column">${escapeHtml(collections[tab.id] || '')}</td>
+            <td class="collection-column">${collectionsHtml}</td>
         `;
         return row;
+    }
+    function renderTabs(tabList) {
+        tabsList.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+        tabList.forEach(tab => {
+            const collections = Array.isArray(tab.collections) ? tab.collections : (tab.collections ? [tab.collections] : []);
+            const collectionsHtml = collections.length
+                ? collections.map(name => `<span class="collection-badge">${escapeHtml(name)}</span>`).join(', ')
+                : '';
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="checkbox-column"><input type="checkbox" class="tab-checkbox" data-tab-id="${escapeHtml(tab.id)}"></td>
+                <td class="title-column">${escapeHtml(tab.title)}</td>
+                <td class="url-column"><a href="${escapeHtml(tab.url)}" target="_blank">${escapeHtml(tab.url)}</a></td>
+                <td class="collection-column">${collectionsHtml}</td>
+            `;
+            fragment.appendChild(row);
+        });
+        tabsList.appendChild(fragment);
     }
     // --- End Render Functions ---
 
     // --- Main Logic ---
-    async function fetchAndDisplayTabs() {
+    async function fetchAndDisplayTabs(checkedTabIds = []) {
         const tabs = await chrome.tabs.query({ currentWindow: true });
         const collectionsData = await chrome.storage.sync.get('collections');
         const collections = collectionsData.collections || {};
@@ -92,6 +131,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (row) fragment.appendChild(row);
         });
         tabsList.appendChild(fragment);
+        // Restore checked state
+        if (checkedTabIds.length > 0) {
+            document.querySelectorAll('.tab-checkbox').forEach(cb => {
+                if (checkedTabIds.includes(parseInt(cb.dataset.tabId))) {
+                    cb.checked = true;
+                }
+            });
+        }
     }
     async function displayCollections() {
         collectionsList.innerHTML = '';
@@ -116,8 +163,148 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     // --- End Main Logic ---
 
+    // --- View Collections Logic ---
+    let selectedCollectionName = null;
+    let allCollectionsCount = {};
+
+    viewCollectionsBtn.addEventListener('click', async () => {
+        // Show loading notification
+        collectionsLoading.style.display = '';
+        collectionsList.innerHTML = '';
+        openCollectionBtn.disabled = true;
+        selectedCollectionName = null;
+        // Query Notion for all tabs and their collections via background script
+        const settings = await chrome.storage.sync.get(['notionApiKey', 'notionDatabaseId']);
+        const notionApiKey = settings.notionApiKey;
+        const notionDatabaseId = settings.notionDatabaseId;
+        if (!notionApiKey || !notionDatabaseId) {
+            alert('Notion API key and database ID must be set.');
+            collectionsLoading.style.display = 'none';
+            return;
+        }
+        chrome.runtime.sendMessage({
+            action: 'queryAllCollectionsFromNotion',
+            payload: { notionApiKey, notionDatabaseId }
+        }, async (response) => {
+            collectionsLoading.style.display = 'none';
+            if (!response || !response.success) {
+                alert('Failed to fetch collections from Notion.');
+                return;
+            }
+            const collections = response.collections;
+            await chrome.storage.sync.set({ collections });
+            // Debug: print the collection value for every tab
+            console.log('DEBUG: Per-tab collections after Notion sync:');
+            Object.entries(collections).forEach(([tabId, val]) => {
+                console.log(`Tab ${tabId}: [${val.join(', ')}]`);
+            });
+            // --- Now proceed as before ---
+            // Map collection name -> Set of tab URLs
+            const collectionTabSets = {};
+            Object.entries(collections).forEach(([tabUrl, arr]) => {
+                (arr || []).forEach(name => {
+                    if (name) {
+                        if (!collectionTabSets[name]) collectionTabSets[name] = new Set();
+                        collectionTabSets[name].add(tabUrl);
+                    }
+                });
+            });
+            // Convert sets to counts and tab lists
+            const counts = {};
+            Object.entries(collectionTabSets).forEach(([name, tabSet]) => {
+                counts[name] = tabSet.size;
+            });
+            allCollectionsCount = counts;
+            // Populate the list
+            collectionsList.innerHTML = '';
+            Object.entries(counts).forEach(([name, count]) => {
+                const li = document.createElement('li');
+                li.className = 'collection-list-item';
+                li.tabIndex = 0;
+                li.innerHTML = `<span>${name}</span><span class="collection-count">${count}</span>`;
+                li.dataset.collection = name;
+                li.addEventListener('click', function() {
+                    document.querySelectorAll('.collection-list-item.selected').forEach(el => el.classList.remove('selected'));
+                    li.classList.add('selected');
+                    selectedCollectionName = name;
+                    openCollectionBtn.disabled = false;
+                });
+                li.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') li.click();
+                });
+                collectionsList.appendChild(li);
+            });
+            openCollectionBtn.disabled = true;
+            selectedCollectionName = null;
+            showSection('collectionsContent');
+        });
+    });
+
+    closeCollections.addEventListener('click', () => showSection('mainContent'));
+
+    openCollectionBtn.addEventListener('click', async () => {
+        if (!selectedCollectionName) return;
+        showSection('mainContent');
+        // Query Notion for tabs in this collection
+        setSyncInProgress(true);
+        const notionApiKey = notionApiKeyInput.value.trim();
+        const notionDatabaseId = notionDatabaseIdInput.value.trim();
+        if (!notionApiKey || !notionDatabaseId) {
+            showStatus('Please enter your Notion API key and Database ID in Settings.');
+            setSyncInProgress(false);
+            return;
+        }
+        chrome.runtime.sendMessage({
+            action: 'queryCollectionTabs',
+            payload: {
+                notionApiKey,
+                notionDatabaseId,
+                collectionName: selectedCollectionName
+            }
+        }, (response) => {
+            setSyncInProgress(false);
+            if (!response || !response.success) {
+                showStatus(`Failed to query Notion: ${response?.error || 'Unknown error'}`);
+                return;
+            }
+            // Render tabs from response.tabs
+            renderTabs(response.tabs || []);
+        });
+    });
+
+    // Add: Sync local collections from Notion tabs (if available)
+    async function syncLocalCollectionsFromNotion(notionTabs) {
+        const collectionsData = await chrome.storage.sync.get('collections');
+        const collections = collectionsData.collections || {};
+        let changed = false;
+        notionTabs.forEach(tab => {
+            // Use URL as tab ID key (or adapt as needed)
+            if (tab.url) {
+                // Only update if Notion collections differ from local
+                if (!Array.isArray(collections[tab.url]) || JSON.stringify(collections[tab.url]) !== JSON.stringify(tab.collections)) {
+                    collections[tab.url] = tab.collections;
+                    changed = true;
+                }
+            }
+        });
+        if (changed) {
+            await chrome.storage.sync.set({ collections });
+            console.log('DEBUG: Local collections updated from Notion.');
+        }
+    }
+
+    // Refresh Tabs button resets view to open tabs
+    fetchTabsBtn.addEventListener('click', async () => {
+        status.textContent = 'Building list of open tabs...';
+        try {
+            await fetchAndDisplayTabs();
+            status.textContent = '';
+        } catch (e) {
+            status.textContent = 'Failed to build tab list.';
+        }
+    });
+
     // --- Event Handlers ---
-    fetchTabsBtn.addEventListener('click', fetchAndDisplayTabs);
     closeSelectedBtn.addEventListener('click', async () => {
         const tabIds = Array.from(document.querySelectorAll('.tab-checkbox:checked')).map(cb => parseInt(cb.dataset.tabId));
         await chrome.tabs.remove(tabIds);
@@ -145,23 +332,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         await displayCollections();
     });
     closeCollections.addEventListener('click', () => showSection('mainContent'));
-    addToCollectionBtn.addEventListener('click', async () => {
-        const collectionName = collectionNameInput.value.trim();
-        if (!isValidCollectionName(collectionName)) {
-            showStatus('Invalid collection name. Only letters, numbers, spaces, dashes, and underscores allowed.');
+    const collectionNameInputEl = collectionNameInput;
+    addToCollectionBtn.addEventListener('click', async function() {
+        const tabIds = Array.from(document.querySelectorAll('.tab-checkbox:checked')).map(cb => parseInt(cb.dataset.tabId));
+        const collectionNameInput = collectionNameInputEl.value.trim();
+        if (!collectionNameInput) {
+            showStatus('Please enter a collection name.');
             return;
         }
-        const tabIds = Array.from(document.querySelectorAll('.tab-checkbox:checked')).map(cb => parseInt(cb.dataset.tabId));
-        if (tabIds.length === 0) {
-            showStatus('Please select at least one tab');
+        if (!isValidCollectionName(collectionNameInput)) {
+            showStatus('Invalid collection name. Only letters, numbers, spaces, dashes, and underscores allowed.');
             return;
         }
         const collectionsData = await chrome.storage.sync.get('collections');
         const collections = collectionsData.collections || {};
-        tabIds.forEach(tabId => { collections[tabId] = collectionName; });
+        for (const tabId of tabIds) {
+            collections[tabId] = collectionNameInput;
+        }
         await chrome.storage.sync.set({ collections });
-        showStatus(`Added ${tabIds.length} tabs to collection "${collectionName}"`);
-        await fetchAndDisplayTabs();
+        showStatus('Added to collection.');
+        await fetchAndDisplayTabs(tabIds);
     });
     const debouncedSyncToNotion = debounce(async function() {
         const tabIds = Array.from(document.querySelectorAll('.tab-checkbox:checked')).map(cb => parseInt(cb.dataset.tabId));
