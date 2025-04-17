@@ -102,16 +102,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         tabsList.innerHTML = '';
         const fragment = document.createDocumentFragment();
         tabList.forEach(tab => {
-            const collections = Array.isArray(tab.collections) ? tab.collections : (tab.collections ? [tab.collections] : []);
-            const collectionsHtml = collections.length
-                ? collections.map(name => `<span class="collection-badge">${escapeHtml(name)}</span>`).join(', ')
-                : '';
             const row = document.createElement('tr');
+            // Generate a unique ID for collection tabs using the URL
+            const tabId = tab.id || `collection-${btoa(tab.url).replace(/[^a-zA-Z0-9]/g, '')}`;
             row.innerHTML = `
-                <td class="checkbox-column"><input type="checkbox" class="tab-checkbox" data-tab-id="${escapeHtml(tab.id)}"></td>
+                <td class="checkbox-column">
+                    <input type="checkbox" class="tab-checkbox" data-tab-id="${tabId}" data-url="${escapeHtml(tab.url)}">
+                </td>
                 <td class="title-column">${escapeHtml(tab.title)}</td>
                 <td class="url-column"><a href="${escapeHtml(tab.url)}" target="_blank">${escapeHtml(tab.url)}</a></td>
-                <td class="collection-column">${collectionsHtml}</td>
+                <td class="collection-column">${tab.collections ? tab.collections.map(name => `<span class="collection-badge">${escapeHtml(name)}</span>`).join(', ') : ''}</td>
             `;
             fragment.appendChild(row);
         });
@@ -311,12 +311,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         await fetchAndDisplayTabs();
     });
     openSelectedBtn.addEventListener('click', async () => {
-        const tabIds = Array.from(document.querySelectorAll('.tab-checkbox:checked')).map(cb => parseInt(cb.dataset.tabId));
-        const tabs = await chrome.tabs.query({});
-        tabIds.forEach(tabId => {
-            const tab = tabs.find(t => t.id === tabId);
-            if (tab) chrome.tabs.create({ url: tab.url });
+        const selectedCheckboxes = document.querySelectorAll('.tab-checkbox:checked');
+        const tabIds = Array.from(selectedCheckboxes).map(checkbox => {
+            const tabId = checkbox.dataset.tabId;
+            const url = checkbox.dataset.url;
+            return { tabId, url };
         });
+        
+        // Get all current tabs first
+        const currentTabs = await chrome.tabs.query({});
+        
+        // For each selected tab, try to find it in current tabs or create a new one
+        for (const { tabId, url } of tabIds) {
+            if (tabId.startsWith('collection-')) {
+                // This is a collection tab, use the stored URL
+                await chrome.tabs.create({ url });
+            } else {
+                // This is a current tab, find it by ID
+                const currentTab = currentTabs.find(t => t.id === parseInt(tabId));
+                if (currentTab) {
+                    await chrome.tabs.create({ url: currentTab.url });
+                }
+            }
+        }
     });
     settingsButton.addEventListener('click', () => showSection('settingsContent'));
     closeSettings.addEventListener('click', () => showSection('mainContent'));

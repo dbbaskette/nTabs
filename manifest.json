@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "nTabs (feature/view-collections)",
+  "name": "nTabs",
   "version": "1.0",
   "description": "Manage and sync your open Chrome tabs to Notion collections.",
   "author": "dbbaskette",
