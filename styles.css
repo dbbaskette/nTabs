@@ -332,7 +332,11 @@ tr.selected {
 
 /* Collections content area */
 #collectionsContent {
-    display: none;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .collections-container {
@@ -359,12 +363,13 @@ tr.selected {
 
 .collections-list-modern {
     list-style: none;
-    padding: 0 0 16px 0;
+    padding: 0 0 32px 0;
     margin: 0;
     max-height: 256px;
     overflow-y: auto;
     border-collapse: separate;
     border-spacing: 0;
+    box-sizing: border-box;
 }
 
 /* Settings content area */
@@ -489,6 +494,13 @@ tr.selected {
 
 .collections-list li:last-child {
     border-bottom: none;
+}
+
+.collections-actions {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    margin-bottom: 8px;
 }
 
 /* Select all checkbox styles */
