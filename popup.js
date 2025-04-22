@@ -115,6 +115,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
             fragment.appendChild(row);
         });
+        // Add a spacer row to ensure the last tab is fully visible
+        const spacerRow = document.createElement('tr');
+        spacerRow.innerHTML = '<td colspan="4" style="height: 32px; border: none; background: transparent;"></td>';
+        fragment.appendChild(spacerRow);
         tabsList.appendChild(fragment);
     }
     // --- End Render Functions ---
