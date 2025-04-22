@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // Always clear collections on popup open
-    chrome.storage.sync.set({ collections: {} });
+    chrome.storage.local.set({ collections: {} });
     console.log('DEBUG: Collections cleared on popup open');
 
     // Initialize elements
@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // On extension startup, clear all collections
     chrome.runtime.onStartup.addListener(async () => {
-        await chrome.storage.sync.set({ collections: {} });
+        await chrome.storage.local.set({ collections: {} });
         console.log('DEBUG: Collections cleared on startup');
     });
 
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Main Logic ---
     async function fetchAndDisplayTabs(checkedTabIds = []) {
         const tabs = await chrome.tabs.query({ currentWindow: true });
-        const collectionsData = await chrome.storage.sync.get('collections');
+        const collectionsData = await chrome.storage.local.get('collections');
         const collections = collectionsData.collections || {};
         tabsList.innerHTML = '';
         const fragment = document.createDocumentFragment();
@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             const collections = response.collections;
-            await chrome.storage.sync.set({ collections });
+            await chrome.storage.local.set({ collections });
             // Debug: print the collection value for every tab
             console.log('DEBUG: Per-tab collections after Notion sync:');
             Object.entries(collections).forEach(([tabId, val]) => {
@@ -274,7 +274,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Add: Sync local collections from Notion tabs (if available)
     async function syncLocalCollectionsFromNotion(notionTabs) {
-        const collectionsData = await chrome.storage.sync.get('collections');
+        const collectionsData = await chrome.storage.local.get('collections');
         const collections = collectionsData.collections || {};
         let changed = false;
         notionTabs.forEach(tab => {
@@ -288,7 +288,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
         if (changed) {
-            await chrome.storage.sync.set({ collections });
+            await chrome.storage.local.set({ collections });
             console.log('DEBUG: Local collections updated from Notion.');
         }
     }
@@ -361,12 +361,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             showStatus('Invalid collection name. Only letters, numbers, spaces, dashes, and underscores allowed.');
             return;
         }
-        const collectionsData = await chrome.storage.sync.get('collections');
+        const collectionsData = await chrome.storage.local.get('collections');
         const collections = collectionsData.collections || {};
         for (const tabId of tabIds) {
             collections[tabId] = collectionNameInput;
         }
-        await chrome.storage.sync.set({ collections });
+        await chrome.storage.local.set({ collections });
         showStatus('Added to collection.');
         await fetchAndDisplayTabs(tabIds);
     });
@@ -384,7 +384,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         setSyncInProgress(true);
         const tabs = await chrome.tabs.query({});
-        const collectionsData = await chrome.storage.sync.get('collections');
+        const collectionsData = await chrome.storage.local.get('collections');
         const collections = collectionsData.collections || {};
         const selectedTabs = tabs.filter(tab => tabIds.includes(tab.id));
         chrome.runtime.sendMessage({

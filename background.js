@@ -220,7 +220,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // On extension startup, clear all collections
 chrome.runtime.onStartup.addListener(async () => {
-    await chrome.storage.sync.set({ collections: {} });
+    await chrome.storage.local.set({ collections: {} });
     console.log('DEBUG: Collections cleared on startup');
 });
 
