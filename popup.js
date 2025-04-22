@@ -317,23 +317,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             const url = checkbox.dataset.url;
             return { tabId, url };
         });
-        
+
         // Get all current tabs first
         const currentTabs = await chrome.tabs.query({});
-        
+
         // For each selected tab, try to find it in current tabs or create a new one
-        for (const { tabId, url } of tabIds) {
-            if (tabId.startsWith('collection-')) {
+        const createTabPromises = tabIds.map(({ tabId, url }) => {
+            // If tabId is not a number, it's a collection tab
+            if (isNaN(parseInt(tabId))) {
                 // This is a collection tab, use the stored URL
-                await chrome.tabs.create({ url });
+                return chrome.tabs.create({ url });
             } else {
                 // This is a current tab, find it by ID
                 const currentTab = currentTabs.find(t => t.id === parseInt(tabId));
                 if (currentTab) {
-                    await chrome.tabs.create({ url: currentTab.url });
+                    return chrome.tabs.create({ url: currentTab.url });
                 }
             }
-        }
+            return Promise.resolve();
+        });
+        await Promise.all(createTabPromises);
     });
     settingsButton.addEventListener('click', () => showSection('settingsContent'));
     closeSettings.addEventListener('click', () => showSection('mainContent'));
