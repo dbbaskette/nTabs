@@ -216,6 +216,82 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         })();
         return true; // Required for async response
     }
+    if (request.action === 'freezeTabs') {
+        (async () => {
+            try {
+                const { tabIds } = request.payload;
+                const frozenRegistry = (await chrome.storage.local.get('frozenTabs')).frozenTabs || {};
+                const results = [];
+                for (const tabId of tabIds) {
+                    try {
+                        const tab = await chrome.tabs.get(tabId);
+                        // Skip chrome:// URLs and already-frozen tabs
+                        if (tab.url.startsWith('chrome://') || tab.url.includes('frozen.html?')) {
+                            results.push({ tabId, ok: false, error: 'Cannot freeze this tab' });
+                            continue;
+                        }
+                        // Save state
+                        frozenRegistry[tabId] = {
+                            url: tab.url,
+                            title: tab.title || tab.url,
+                            favicon: tab.favIconUrl || '',
+                            pinned: tab.pinned,
+                            index: tab.index
+                        };
+                        // Navigate to frozen page
+                        const frozenUrl = chrome.runtime.getURL('frozen.html') +
+                            '?url=' + encodeURIComponent(tab.url) +
+                            '&title=' + encodeURIComponent(tab.title || tab.url) +
+                            '&favicon=' + encodeURIComponent(tab.favIconUrl || '');
+                        await chrome.tabs.update(tabId, { url: frozenUrl });
+                        results.push({ tabId, ok: true });
+                    } catch (e) {
+                        results.push({ tabId, ok: false, error: e.message });
+                    }
+                }
+                await chrome.storage.local.set({ frozenTabs: frozenRegistry });
+                sendResponse({ success: true, results });
+            } catch (err) {
+                sendResponse({ success: false, error: err.message });
+            }
+        })();
+        return true;
+    }
+    if (request.action === 'thawTabs') {
+        (async () => {
+            try {
+                const { tabIds } = request.payload;
+                const frozenRegistry = (await chrome.storage.local.get('frozenTabs')).frozenTabs || {};
+                const results = [];
+                for (const tabId of tabIds) {
+                    const entry = frozenRegistry[tabId];
+                    if (!entry) {
+                        results.push({ tabId, ok: false, error: 'Tab not in frozen registry' });
+                        continue;
+                    }
+                    try {
+                        await chrome.tabs.update(tabId, { url: entry.url });
+                        delete frozenRegistry[tabId];
+                        results.push({ tabId, ok: true });
+                    } catch (e) {
+                        results.push({ tabId, ok: false, error: e.message });
+                    }
+                }
+                await chrome.storage.local.set({ frozenTabs: frozenRegistry });
+                sendResponse({ success: true, results });
+            } catch (err) {
+                sendResponse({ success: false, error: err.message });
+            }
+        })();
+        return true;
+    }
+    if (request.action === 'getFrozenTabs') {
+        (async () => {
+            const frozenRegistry = (await chrome.storage.local.get('frozenTabs')).frozenTabs || {};
+            sendResponse({ success: true, frozenTabs: frozenRegistry });
+        })();
+        return true;
+    }
 });
 
 // On extension startup, clear all collections
@@ -237,7 +313,14 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }
 });
 
-chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
+    // Clean up frozen registry when a tab is closed
+    const frozenData = await chrome.storage.local.get('frozenTabs');
+    const frozenTabs = frozenData.frozenTabs || {};
+    if (frozenTabs[tabId]) {
+        delete frozenTabs[tabId];
+        await chrome.storage.local.set({ frozenTabs });
+    }
     if (!removeInfo.windowId) {
         refreshTabsList();
     }

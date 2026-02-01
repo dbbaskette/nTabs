@@ -26,5 +26,11 @@
   },
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["frozen.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

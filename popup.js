@@ -77,9 +77,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- End Utility Functions ---
 
     // --- Render Functions ---
-    function createTabRow(tab, collections) {
+    function createTabRow(tab, collections, frozenTabs) {
         if (tab.url && tab.url.startsWith('chrome://')) return null;
         const row = document.createElement('tr');
+        const isFrozen = frozenTabs && frozenTabs[tab.id];
+        if (isFrozen) row.classList.add('frozen-row');
+        // For frozen tabs, show original title/URL from registry
+        const displayTitle = isFrozen ? frozenTabs[tab.id].title : tab.title;
+        const displayUrl = isFrozen ? frozenTabs[tab.id].url : tab.url;
+        const frozenBadge = isFrozen ? '<span class="frozen-badge">FROZEN</span> ' : '';
         // Defensive: handle legacy array or string
         let mostRecent = '';
         if (Array.isArray(collections[tab.id])) {
@@ -92,8 +98,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             <td class="checkbox-column">
                 <input type="checkbox" class="tab-checkbox" data-tab-id="${tab.id}">
             </td>
-            <td class="title-column">${escapeHtml(tab.title)}</td>
-            <td class="url-column"><a href="${escapeHtml(tab.url)}" target="_blank">${escapeHtml(tab.url)}</a></td>
+            <td class="title-column">${frozenBadge}${escapeHtml(displayTitle)}</td>
+            <td class="url-column"><a href="${escapeHtml(displayUrl)}" target="_blank">${escapeHtml(displayUrl)}</a></td>
             <td class="collection-column">${collectionsHtml}</td>
         `;
         return row;
@@ -128,10 +134,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tabs = await chrome.tabs.query({ currentWindow: true });
         const collectionsData = await chrome.storage.local.get('collections');
         const collections = collectionsData.collections || {};
+        const frozenData = await chrome.storage.local.get('frozenTabs');
+        const frozenTabs = frozenData.frozenTabs || {};
         tabsList.innerHTML = '';
         const fragment = document.createDocumentFragment();
         tabs.forEach(tab => {
-            const row = createTabRow(tab, collections);
+            const row = createTabRow(tab, collections, frozenTabs);
             if (row) fragment.appendChild(row);
         });
         tabsList.appendChild(fragment);
@@ -437,6 +445,64 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (selectAllCheckbox) selectAllCheckbox.checked = allChecked;
         }
     });
+    // --- Freeze/Thaw Logic ---
+    const freezeSelectedBtn = document.getElementById('freezeSelected');
+    const thawSelectedBtn = document.getElementById('thawSelected');
+
+    freezeSelectedBtn.addEventListener('click', async () => {
+        const tabIds = Array.from(document.querySelectorAll('.tab-checkbox:checked'))
+            .map(cb => parseInt(cb.dataset.tabId))
+            .filter(id => !isNaN(id));
+        if (tabIds.length === 0) {
+            showStatus('Please select at least one tab to freeze.');
+            return;
+        }
+        chrome.runtime.sendMessage({
+            action: 'freezeTabs',
+            payload: { tabIds }
+        }, (response) => {
+            if (!response || !response.success) {
+                showStatus('Failed to freeze tabs: ' + (response?.error || 'Unknown error'));
+                return;
+            }
+            const ok = response.results.filter(r => r.ok).length;
+            const fail = response.results.length - ok;
+            if (fail > 0) {
+                showStatus(`Froze ${ok} tab(s), ${fail} could not be frozen.`);
+            } else {
+                showStatus(`Froze ${ok} tab(s).`);
+            }
+            fetchAndDisplayTabs();
+        });
+    });
+
+    thawSelectedBtn.addEventListener('click', async () => {
+        const tabIds = Array.from(document.querySelectorAll('.tab-checkbox:checked'))
+            .map(cb => parseInt(cb.dataset.tabId))
+            .filter(id => !isNaN(id));
+        if (tabIds.length === 0) {
+            showStatus('Please select at least one frozen tab to thaw.');
+            return;
+        }
+        chrome.runtime.sendMessage({
+            action: 'thawTabs',
+            payload: { tabIds }
+        }, (response) => {
+            if (!response || !response.success) {
+                showStatus('Failed to thaw tabs: ' + (response?.error || 'Unknown error'));
+                return;
+            }
+            const ok = response.results.filter(r => r.ok).length;
+            const fail = response.results.length - ok;
+            if (fail > 0) {
+                showStatus(`Thawed ${ok} tab(s), ${fail} were not frozen.`);
+            } else {
+                showStatus(`Thawed ${ok} tab(s).`);
+            }
+            fetchAndDisplayTabs();
+        });
+    });
+
     // Set logo to the default icon on load
     const logo = document.getElementById('ntabsLogo');
     if (logo) logo.src = 'icons/icon128.png';
