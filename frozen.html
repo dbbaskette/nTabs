@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title id="frozenTitle">Frozen Tab</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f4f8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: #2d3748;
+        }
+        .frozen-container {
+            text-align: center;
+            max-width: 520px;
+            padding: 48px 32px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        }
+        .frozen-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.6;
+        }
+        .frozen-label {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #4299e1;
+            margin-bottom: 12px;
+        }
+        .frozen-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+        .frozen-url {
+            font-size: 13px;
+            color: #718096;
+            word-break: break-all;
+            margin-bottom: 24px;
+        }
+        .thaw-btn {
+            display: inline-block;
+            padding: 12px 32px;
+            background: #4299e1;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .thaw-btn:hover { background: #3182ce; }
+        .frozen-hint {
+            margin-top: 16px;
+            font-size: 12px;
+            color: #a0aec0;
+        }
+    </style>
+</head>
+<body>
+    <div class="frozen-container">
+        <div class="frozen-icon" id="faviconArea"></div>
+        <div class="frozen-label">Frozen Tab</div>
+        <div class="frozen-title" id="displayTitle">Loading...</div>
+        <div class="frozen-url" id="displayUrl"></div>
+        <button class="thaw-btn" id="thawBtn">Restore Tab</button>
+        <div class="frozen-hint">Click the button or press any key to restore this tab.</div>
+    </div>
+    <script>
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const originalUrl = params.get('url') || '';
+            const title = params.get('title') || 'Frozen Tab';
+            const favicon = params.get('favicon') || '';
+
+            document.getElementById('frozenTitle').textContent = title + ' (Frozen)';
+            document.getElementById('displayTitle').textContent = title;
+            document.getElementById('displayUrl').textContent = originalUrl;
+
+            if (favicon) {
+                const img = document.createElement('img');
+                img.src = favicon;
+                img.width = 48;
+                img.height = 48;
+                img.style.opacity = '0.5';
+                img.style.filter = 'grayscale(100%)';
+                img.onerror = function() { this.parentElement.textContent = '\u2744\uFE0F'; };
+                document.getElementById('faviconArea').appendChild(img);
+            } else {
+                document.getElementById('faviconArea').textContent = '\u2744\uFE0F';
+            }
+
+            function thaw() {
+                if (originalUrl) {
+                    window.location.replace(originalUrl);
+                }
+            }
+
+            document.getElementById('thawBtn').addEventListener('click', thaw);
+            document.addEventListener('keydown', function(e) {
+                if (e.key !== 'F5' && e.key !== 'F12') thaw();
+            });
+        })();
+    </script>
+</body>
+</html>

@@ -534,4 +534,54 @@ tr.selected {
 
 .settings-icon:hover {
     color: #2d3748;
+}
+
+/* Freeze/Thaw styles */
+#freezeSelected {
+    background-color: #63b3ed;
+    box-shadow: 0 4px 0 #3182ce;
+}
+
+#freezeSelected:hover {
+    background-color: #4299e1;
+    box-shadow: 0 6px 0 #3182ce;
+}
+
+#freezeSelected:active {
+    box-shadow: 0 2px 0 #3182ce;
+}
+
+#thawSelected {
+    background-color: #f6ad55;
+    box-shadow: 0 4px 0 #c05621;
+}
+
+#thawSelected:hover {
+    background-color: #ed8936;
+    box-shadow: 0 6px 0 #c05621;
+}
+
+#thawSelected:active {
+    box-shadow: 0 2px 0 #c05621;
+}
+
+.frozen-row {
+    background-color: #ebf8ff !important;
+    opacity: 0.8;
+}
+
+.frozen-row:hover {
+    background-color: #bee3f8 !important;
+}
+
+.frozen-badge {
+    display: inline-block;
+    background: #63b3ed;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    vertical-align: middle;
+    letter-spacing: 0.5px;
 } 
